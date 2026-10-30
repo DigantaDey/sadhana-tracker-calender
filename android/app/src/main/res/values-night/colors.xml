@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_bg">#0B0B0C</color>
+    <color name="window_bg">#0B0B0C</color>
+    <color name="ink">#EDE8DD</color>
+    <color name="saffron">#E7B273</color>
+    <color name="hairline">#24211C</color>
+</resources>

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useStore, useToday } from '../lib/store';
 import { useNav } from '../lib/nav';
-import { COLORS, type Sankalp } from '../lib/types';
+import type { Sankalp } from '../lib/types';
 import {
   addDays,
   addMonths,
@@ -26,9 +26,11 @@ import {
   WEEKDAYS_SUN,
   weekdayOf,
 } from '../lib/date';
-import { isDone, sankalpProgress, scheduledOn, tallyDay } from '../lib/schedule';
-import { tithiName } from '../lib/panchang';
-import { Segmented, Empty, PC_ACCENT, pc } from '../components/ui';
+import { isDone, scheduledOn, tallyDay } from '../lib/schedule';
+import { panchangFor } from '../lib/panchang';
+import { Segmented, Empty, pc } from '../components/ui';
+import { MoonGlyph } from '../components/MoonGlyph';
+import { PanchangSheet } from './PanchangSheet';
 
 type View = 'day' | 'week' | 'month' | 'year';
 
@@ -39,6 +41,7 @@ export function CalendarScreen() {
   const [view, setView] = useState<View>('month');
   const [anchor, setAnchor] = useState(today);
   const [selected, setSelected] = useState(today);
+  const [panchangDate, setPanchangDate] = useState<string | null>(null);
 
   const monthDate = fromISO(anchor);
   const y = monthDate.getFullYear();
@@ -84,7 +87,26 @@ export function CalendarScreen() {
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [anchor, state.settings.weekStartsMonday]);
 
-  const dayList = scheduledOn(state.sankalps, selected);
+  const dayList = useMemo(
+    () => scheduledOn(state.sankalps, selected),
+    [state.sankalps, selected]
+  );
+
+  /** One pass over the visible grid, memoised — 42 days × every vow. */
+  const monthData = useMemo(
+    () =>
+      monthCells.map((cell) => {
+        const due = scheduledOn(state.sankalps, cell.iso);
+        return {
+          ...cell,
+          due,
+          done: due.filter((s) => isDone(state.completions, s.id, cell.iso)).length,
+        };
+      }),
+    [monthCells, state.sankalps, state.completions]
+  );
+
+  const selectedDay = useMemo(() => panchangFor(selected), [selected]);
 
   return (
     <main className="screen">
@@ -92,6 +114,23 @@ export function CalendarScreen() {
         <div className="eyebrow">The long view</div>
         <h1 className="title">Calendar</h1>
       </div>
+
+      {state.sankalps.length === 0 && (
+        <div className="card card--pad" style={{ marginTop: 4, background: 'var(--surface-2)' }}>
+          <div className="eyebrow">Empty for now</div>
+          <p style={{ fontSize: 13, margin: '6px 0 0', color: 'var(--muted)', lineHeight: 1.6 }}>
+            The calendar fills itself as soon as you take a vow. Nothing here is pre-filled.
+          </p>
+          <button
+            className="btn btn--ghost"
+            style={{ marginTop: 12, height: 34 }}
+            onClick={() => nav.openCreate()}
+            type="button"
+          >
+            <Plus size={14} /> Take a vow
+          </button>
+        </div>
+      )}
 
       <Segmented<View>
         value={view}
@@ -136,9 +175,7 @@ export function CalendarScreen() {
             ))}
           </div>
           <div className="month">
-            {monthCells.map(({ iso, outside }) => {
-              const list = scheduledOn(state.sankalps, iso);
-              const done = list.filter((s) => isDone(state.completions, s.id, iso)).length;
+            {monthData.map(({ iso, outside, due: list, done }) => {
               const shown = list.slice(0, 3);
               return (
                 <button
@@ -147,6 +184,8 @@ export function CalendarScreen() {
                   data-outside={outside}
                   data-today={iso === today}
                   data-selected={iso === selected}
+                  aria-label={`${fromISO(iso).getDate()} ${MONTHS[m]} — ${list.length ? `${done} of ${list.length} kept` : 'nothing scheduled'}`}
+                  aria-pressed={iso === selected}
                   onClick={() => {
                     setSelected(iso);
                     if (outside) setAnchor(iso);
@@ -246,7 +285,7 @@ export function CalendarScreen() {
           ) : (
             <div className="timeline">
               {dayList.map((s) => {
-                const done = isDone(state.completions, s.id, anchor);
+                const done = isDone(state.completions, s.id, selected);
                 return (
                   <div
                     key={s.id}
@@ -275,7 +314,7 @@ export function CalendarScreen() {
                       <button
                         className="check"
                         data-done={done}
-                        onClick={() => toggleComplete(s.id, anchor)}
+                        onClick={() => toggleComplete(s.id, selected)}
                         aria-label="Toggle"
                         type="button"
                       >
@@ -351,10 +390,23 @@ export function CalendarScreen() {
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 19, letterSpacing: '-0.02em' }}>
                   {fromISO(selected).getDate()} {MONTHS[fromISO(selected).getMonth()]}
                 </div>
-                <div className="tithi" style={{ marginTop: 3 }}>
-                  <span className="tithi__moon" />
-                  {tithiName(fromISO(selected))}
-                </div>
+                <button
+                  className="tithi tithi--link"
+                  style={{ marginTop: 3 }}
+                  onClick={() => setPanchangDate(selected)}
+                  type="button"
+                >
+                  <MoonGlyph
+                    phase={
+                      selectedDay.paksha === 'śukla'
+                        ? selectedDay.tithi / 60
+                        : 1 - (selectedDay.tithi - 15) / 60
+                    }
+                  />
+                  {selectedDay.tithiName}
+                  <span className="tithi__end">until {selectedDay.tithiEndLabel}</span>
+                  <ArrowUpRight size={11} />
+                </button>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div
@@ -384,7 +436,6 @@ export function CalendarScreen() {
               <div className="stack gap-2">
                 {dayList.map((s) => {
                   const done = isDone(state.completions, s.id, selected);
-                  const p = sankalpProgress(s, state.completions, selected);
                   return (
                     <div key={s.id} className="row" style={pc(s.color)}>
                       <span className="glyph" style={{ width: 26, height: 26, fontSize: 12 }}>
@@ -403,7 +454,7 @@ export function CalendarScreen() {
                           {s.name}
                         </div>
                         <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                          {s.time ? prettyWindow(s.time) : 'Anytime'} · {Math.round(p.rate * 100)}%
+                          {s.time ? prettyWindow(s.time) : 'Anytime'}
                         </div>
                       </div>
                       <button
@@ -438,6 +489,7 @@ export function CalendarScreen() {
       )}
 
       <div style={{ height: 12 }} />
+      <PanchangSheet date={panchangDate} onClose={() => setPanchangDate(null)} />
     </main>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Settings } from '../lib/types';
 
 export function useTheme(pref: Settings['theme']) {
@@ -19,4 +19,22 @@ export function useTheme(pref: Settings['theme']) {
 export function resolvedTheme(pref: Settings['theme']): 'light' | 'dark' {
   if (pref !== 'system') return pref;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** The theme actually painted right now, reactive to `prefers-color-scheme`. */
+export function useResolvedTheme(pref: Settings['theme']): 'light' | 'dark' {
+  const read = () => resolvedTheme(pref);
+  const [resolved, setResolved] = useState<'light' | 'dark'>(() =>
+    typeof window === 'undefined' ? 'light' : read()
+  );
+  useEffect(() => {
+    setResolved(read());
+    if (pref !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => setResolved(read());
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref]);
+  return resolved;
 }

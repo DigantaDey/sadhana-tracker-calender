@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.sadhana.core.Dates
-import app.sadhana.domain.ApproximatePanchang
+import app.sadhana.domain.Panchang
 import app.sadhana.domain.Schedule
 import app.sadhana.domain.Stats
 import app.sadhana.ui.UiState
@@ -51,7 +51,7 @@ fun DaySheet(
                     Text(Dates.formatLong(date).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(Dates.formatShort(date), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 2.dp))
                     Text(
-                        ApproximatePanchang.tithiName(Dates.parse(date)),
+                        Panchang.forDate(date).tithiName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

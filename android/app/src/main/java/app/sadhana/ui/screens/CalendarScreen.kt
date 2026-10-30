@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadhana.core.Dates
-import app.sadhana.domain.ApproximatePanchang
+import app.sadhana.domain.Panchang
 import app.sadhana.domain.Sankalp
 import app.sadhana.domain.Schedule
 import app.sadhana.domain.Stats
@@ -337,7 +337,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.dayContent(
     item {
         Column(Modifier.padding(top = 14.dp)) {
             Text(
-                ApproximatePanchang.tithiName(Dates.parse(iso)),
+                Panchang.forDate(iso).tithiName,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -467,7 +467,7 @@ private fun SelectedDayPreview(
                 Column {
                     Text(Dates.formatLong(selected), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        ApproximatePanchang.tithiName(Dates.parse(selected)),
+                        Panchang.forDate(selected).tithiName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

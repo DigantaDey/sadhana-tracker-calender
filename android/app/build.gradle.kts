@@ -14,14 +14,32 @@ android {
         applicationId = "app.sadhana"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "2.0.0"
 
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Release signing is read from keystore.properties when it exists, so a
+    // local `./gradlew bundleRelease` produces an uploadable AAB. CI injects
+    // the same four values from secrets; nothing secret is committed.
+    signingConfigs {
+        if (rootProject.file("keystore.properties").exists()) {
+            create("release") {
+                val props = java.util.Properties().apply {
+                    rootProject.file("keystore.properties").inputStream().use { load(it) }
+                }
+                storeFile = rootProject.file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -47,6 +65,13 @@ android {
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        resources.excludes += "/META-INF/*.kotlin_module"
+    }
+
+    bundle {
+        language { enableSplit = true }
+        density { enableSplit = true }
+        abi { enableSplit = true }
     }
 }
 

@@ -1,6 +1,4 @@
-@import '@fontsource-variable/inter';
-@import '@fontsource-variable/fraunces/full.css';
-@import '@fontsource-variable/fraunces/full-italic.css';
+@import './fonts.css';
 
 /* ══ Tokens ═══════════════════════════════════════════════════════════════ */
 
@@ -280,7 +278,7 @@ select {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  padding: 4px var(--gutter) 28px;
+  padding: 4px var(--gutter) calc(28px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
@@ -674,9 +672,12 @@ select {
 .pitem__body {
   flex: 1;
   min-width: 0;
+  text-align: left;
+  display: block;
 }
 
 .pitem__name {
+  display: block;
   font-size: 14.5px;
   font-weight: 560;
   letter-spacing: -0.012em;
@@ -2530,7 +2531,8 @@ select {
   inset: 0;
   border-radius: 50%;
   background: var(--bg);
-  transform: translateX(var(--shadow-x, 0%));
+  transform: translateX(calc(var(--shadow-x, 0%) * var(--shadow-sign, 1)));
+  transition: transform 0.5s var(--ease);
 }
 
 .hide {
@@ -2563,5 +2565,786 @@ select {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Polish pass — pañcāṅga surfaces, onboarding, empty states, accessibility
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Focus & touch ───────────────────────────────────────────────────────── */
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* iOS zoom-on-focus happens below 16px; keep inputs at 16 on phones. */
+@media (max-width: 480px) {
+  .input,
+  .select,
+  input[type='time'],
+  input[type='date'],
+  textarea {
+    font-size: 16px;
+  }
+}
+
+.check,
+.pitem__bell,
+.iconbtn,
+.tabbar__item {
+  min-width: 34px;
+  min-height: 34px;
+}
+
+/* On a real phone the OS draws its own status bar. */
+@media (max-width: 719px) {
+  .statusbar {
+    display: none;
+  }
+  .device {
+    height: 100dvh;
+  }
+  .screen {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+}
+
+@media (max-width: 719px) and (display-mode: standalone) {
+  .tabbar {
+    padding-bottom: max(env(safe-area-inset-bottom), 6px);
+  }
+}
+
+/* Long, rarely-scrolled-into surfaces don't need to be painted ahead of time. */
+.screen > section,
+.notelist > .notecard,
+.yeargrid > .minimonth {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+
+.screen-loading {
+  flex: 1;
+  margin: 24px var(--gutter);
+  border-radius: var(--r-lg);
+  background: linear-gradient(
+    100deg,
+    var(--surface-2) 30%,
+    var(--surface-3) 45%,
+    var(--surface-2) 60%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.4s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* ── Pañcāṅga card on Today ──────────────────────────────────────────────── */
+
+.panchcard {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 18px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--accent-soft) 55%, var(--surface)),
+    var(--surface) 72%
+  );
+  text-align: left;
+  width: 100%;
+  transition: transform 0.2s var(--spring), border-color 0.25s;
+}
+
+.panchcard:active {
+  transform: scale(0.99);
+}
+
+.panchcard__moon {
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.panchcard__moon .tithi__moon {
+  background: var(--accent);
+}
+
+.panchcard__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panchcard__tithi {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.panchcard__meta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.panchcard__sun {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.panchcard__sun span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.panchcard__chev {
+  color: var(--muted-2);
+  flex: none;
+}
+
+/* ── Pañcāṅga sheet ──────────────────────────────────────────────────────── */
+
+.panch__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 4px 0 14px;
+}
+
+.panch__tithi {
+  font-family: var(--font-serif);
+  font-size: 27px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin-top: 6px;
+}
+
+.panch__sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panch__moon {
+  border-radius: 50%;
+}
+
+.panch__obs {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+
+.panch__grid {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.panch__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.panch__row:last-child {
+  border-bottom: 0;
+}
+
+.panch__label {
+  color: var(--muted);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+.panch__value {
+  text-align: right;
+  font-weight: 540;
+  font-variant-numeric: tabular-nums;
+}
+
+.panch__value em {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 450;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.panch__sun {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.panch__suncell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.panch__suncell svg {
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.panch__suncell strong {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+
+.tithi--link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.tithi--link:active {
+  color: var(--accent);
+}
+
+.tithi__end {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panch-mini {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.panch-mini__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 13px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.panch-mini__row:last-child {
+  border-bottom: 0;
+}
+
+.panch-mini__row strong {
+  font-weight: 550;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.panch-mini__row--obs strong {
+  color: var(--accent);
+}
+
+/* ── First-vow prompt ────────────────────────────────────────────────────── */
+
+.firstvow {
+  text-align: center;
+  padding: 26px 20px 24px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--accent-soft) 30%, transparent);
+}
+
+.firstvow__glyph {
+  font-family: var(--font-serif);
+  font-size: 34px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.firstvow h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin: 10px 0 0;
+}
+
+.firstvow p {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin: 7px auto 0;
+  max-width: 30ch;
+}
+
+.firstvow .btn {
+  margin-top: 16px;
+}
+
+/* ── Today: week bars, diary card, quote ─────────────────────────────────── */
+
+.weekbars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.weekbars__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.weekbars__bar {
+  width: 100%;
+  max-width: 22px;
+  border-radius: 6px;
+  transition: height 0.5s var(--ease);
+}
+
+.weekbars__day {
+  font-size: 9.5px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.weekbars__day[data-today='true'] {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.diarycard {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+}
+
+.diarycard__body {
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+
+.diarycard__title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 520;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+.diarycard__sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.today__quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted-2);
+  margin: 30px 0 6px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.mini-label {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.dayempty {
+  padding: 26px 18px;
+  border: 1px dashed var(--line-2);
+  border-radius: 14px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ── Location picker ─────────────────────────────────────────────────────── */
+
+.place {
+  margin-top: 14px;
+}
+
+.place__field {
+  display: block;
+}
+
+.place__note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 7px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.place__note--tight {
+  color: var(--muted-2);
+  margin-top: 3px;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
+.tithi-preview {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+
+.tithi-preview__next {
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--ink-2);
+}
+
+.tithi-preview__meta {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Onboarding ──────────────────────────────────────────────────────────── */
+
+.onboard {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(10px + env(safe-area-inset-top)) var(--gutter)
+    calc(18px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.onboard::-webkit-scrollbar {
+  display: none;
+}
+
+.onboard__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+}
+
+.onboard__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.onboard__brand svg {
+  color: var(--accent);
+}
+
+.onboard__body {
+  flex: 1;
+  padding-top: 34px;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard__title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 42px;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  margin: 14px 0 0;
+}
+
+.onboard__title em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.onboard__title--sm {
+  font-size: 30px;
+  margin-top: 8px;
+}
+
+.onboard__lede {
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--ink-2);
+  margin: 18px 0 0;
+  max-width: 34ch;
+}
+
+.onboard__points {
+  list-style: none;
+  padding: 0;
+  margin: 26px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboard__points li {
+  display: flex;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.onboard__points svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--jade);
+  stroke-width: 2.4;
+}
+
+.onboard__templates {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.template {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s var(--spring);
+}
+
+.template[data-active='true'] {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent-soft) 60%, var(--surface));
+}
+
+.template:active {
+  transform: scale(0.99);
+}
+
+.template__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.template__title {
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+}
+
+.template__sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.template__tick {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-2);
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: transparent;
+}
+
+.template[data-active='true'] .template__tick {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.onboard__foot {
+  flex: none;
+  padding-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboard__dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.onboard__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-2);
+  transition: background 0.25s, width 0.25s;
+}
+
+.onboard__dots span[data-active='true'] {
+  width: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.onboard__fine {
+  font-size: 10.5px;
+  color: var(--muted-2);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.onboard .linkbtn {
+  align-self: flex-start;
+  margin-top: 14px;
+}
+
+/* ── Error boundary ──────────────────────────────────────────────────────── */
+
+.crash {
+  max-width: 420px;
+  margin: auto;
+  padding: 40px 28px;
+  text-align: center;
+}
+
+.crash__glyph {
+  font-family: var(--font-serif);
+  font-size: 40px;
+  color: var(--accent);
+}
+
+.crash h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  margin: 12px 0 0;
+}
+
+.crash p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 18px;
+}
+
+.crash details {
+  margin-top: 22px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.crash pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 8px;
+  font-size: 10.5px;
+}
+
+/* ── Small screens: keep the tab bar reachable, sheets shorter ───────────── */
+
+@media (max-height: 700px) {
+  .onboard__body {
+    padding-top: 18px;
+  }
+  .onboard__title {
+    font-size: 34px;
   }
 }

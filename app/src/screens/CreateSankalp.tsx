@@ -3,7 +3,8 @@ import { Bell, CalendarDays, Clock, Repeat, Target, Type } from 'lucide-react';
 import { useStore, useToday } from '../lib/store';
 import { CATEGORIES, COLORS, TITHI_NAMES, type ColorKey, type Sankalp } from '../lib/types';
 import { addDays, MONTHS, prettyTime, todayISO, WEEKDAYS_SUN } from '../lib/date';
-import { describeFrequency } from '../lib/panchang';
+import { describeFrequency } from '../lib/format';
+import { nextTithiDate, panchangFor } from '../lib/panchang';
 import { Chip, Sheet, Switch, pc } from '../components/ui';
 
 const GLYPHS = ['ॐ', '✦', '✶', '॥', '☸', '❋', '✿', '❂', '❁', '◈', '✧', '☀'];
@@ -421,9 +422,18 @@ export function CreateSankalp({
                 </option>
               ))}
             </select>
+            <div className="tithi-preview">
+              <span className="tithi-preview__next">
+                Next: {nextTithiDate(tithi, today)}
+              </span>
+              <span className="tithi-preview__meta">
+                Tithi at sunrise · {panchangFor(today).sunriseLabel ?? '—'} sunrise
+              </span>
+            </div>
             <p className="hint">
-              Tithi is computed locally from the moon&rsquo;s elongation and may differ by a few
-              hours from your pañcāṅga. The native build will use a full ephemeris.
+              The lunar day is computed here from the Moon&rsquo;s elongation and your local
+              sunrise. Vṛddhi and kṣaya days are handled the way a pañcāṅga does: a tithi that
+              touches two sunrises is observed on the second.
             </p>
           </>
         )}
@@ -440,7 +450,8 @@ export function CreateSankalp({
         <p className="hint" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ color: 'var(--accent)' }}>◷</span>
           {describeFrequency(frequency)}
-          {endsOn ? ` · until ${endsOn}` : ''}
+          {endsOn ? ` · until ${endsOn}` : ' · open-ended'}
+          {name.trim() ? '' : ' · name it below'}
         </p>
       </div>
 

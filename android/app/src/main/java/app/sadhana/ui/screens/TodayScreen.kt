@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadhana.core.Dates
-import app.sadhana.domain.ApproximatePanchang
+import app.sadhana.domain.Panchang
 import app.sadhana.domain.Sankalp
 import app.sadhana.domain.Schedule
 import app.sadhana.domain.Stats
@@ -44,6 +44,7 @@ import app.sadhana.ui.UiState
 import app.sadhana.ui.components.BarTrack
 import app.sadhana.ui.components.EmptyState
 import app.sadhana.ui.components.GlyphBadge
+import app.sadhana.ui.components.Hairline
 import app.sadhana.ui.components.SectionHeader
 import app.sadhana.ui.components.StatCard
 import app.sadhana.ui.theme.LocalSadhanaColors
@@ -112,7 +113,7 @@ fun TodayScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        ApproximatePanchang.tithiName(Dates.parse(today)),
+                        Panchang.forDate(today).tithiName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -158,8 +159,10 @@ fun TodayScreen(
         item {
             Column(Modifier.padding(top = 26.dp)) {
                 SectionHeader("Today's practice")
-                if (scheduled.isEmpty()) {
-                    EmptyState("A clear day", "Take a small vow and it will meet you here tomorrow.")
+                if (state.sankalps.isEmpty()) {
+                    BeginCard(onCreate)
+                } else if (scheduled.isEmpty()) {
+                    EmptyState("A clear day", "Nothing is due today. Rest is part of the practice.")
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "New sankalp",
@@ -233,6 +236,8 @@ fun TodayScreen(
                 }
             }
         }
+
+        item { PanchangCard(today) }
 
         item {
             Column(Modifier.padding(top = 26.dp)) {
@@ -420,5 +425,106 @@ private fun StripCard(
             )
             Text("${streak}d", fontSize = 10.5.sp, color = accent, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+@Composable
+private fun BeginCard(onCreate: () -> Unit) {
+    val extras = LocalSadhanaColors.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, extras.hairline, RoundedCornerShape(20.dp))
+            .padding(20.dp),
+    ) {
+        Text("Begin with one vow", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Not a to-do list. One practice you are willing to keep, and the shape of the week it keeps.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable { onCreate() }
+                .padding(horizontal = 18.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Take a sankalp",
+                color = MaterialTheme.colorScheme.background,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PanchangCard(today: String) {
+    val extras = LocalSadhanaColors.current
+    val day = Panchang.forDate(today)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 22.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, extras.hairline, RoundedCornerShape(18.dp))
+            .padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("PAÑCĀṄGA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(day.tithiName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 2.dp))
+                Text(
+                    "ends ${day.tithiEndLabel} · ${day.illuminationPercent}% moon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            day.observance?.let { label ->
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(extras.cardAlt)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Hairline()
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            PanchangFact("Nakṣatra", day.nakshatraName)
+            PanchangFact("Yoga", day.yogaName)
+            PanchangFact("Karaṇa", day.karana)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            PanchangFact("Sunrise", day.sunriseLabel)
+            PanchangFact("Sunset", day.sunsetLabel)
+            PanchangFact("Daylight", day.dayLengthMinutes?.let { "${it / 60}h ${it % 60}m" } ?: "—")
+        }
+        Text(
+            "Lahiri · ${day.place.label} · computed on this device",
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+    }
+}
+
+@Composable
+private fun PanchangFact(label: String, value: String) {
+    Column {
+        Text(label.uppercase(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 1.dp))
     }
 }

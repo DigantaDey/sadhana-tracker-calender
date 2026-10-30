@@ -28,7 +28,7 @@ object Schedule {
                 val date = Dates.parse(iso)
                 date.monthValue == f.month && date.dayOfMonth == f.day
             }
-            is Frequency.Tithi -> ApproximatePanchang.occursOn(iso, f.tithi)
+            is Frequency.Tithi -> Panchang.observanceOn(iso, f.tithi)
             is Frequency.Once -> iso == f.date
         }
     }

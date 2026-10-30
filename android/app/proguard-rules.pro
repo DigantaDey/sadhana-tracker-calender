@@ -1,0 +1,4 @@
+-keep class app.sadhana.data.** { *; }
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontwarn kotlinx.serialization.**
+-keep,includedescriptorclasses class app.sadhana.**$$serializer { *; }

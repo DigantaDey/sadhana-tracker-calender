@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useStore, useToday } from '../lib/store';
 import { useNav } from '../lib/nav';
-import { COLORS, type Sankalp } from '../lib/types';
+import type { Sankalp } from '../lib/types';
 import { addDays, prettyWindow, startOfWeek, weekdayLabels } from '../lib/date';
 import {
   consistency,
@@ -42,6 +42,7 @@ export function InsightsScreen() {
 
   const cap = useMemo(() => detectCapability(state.settings.onDeviceAi), [state.settings.onDeviceAi]);
   const insights = useMemo(() => ruleInsights(state), [state]);
+  const hasHistory = state.sankalps.length > 0;
   const streak = useMemo(
     () => currentStreak(state.sankalps, state.completions, today),
     [state.sankalps, state.completions, today]
@@ -96,10 +97,10 @@ export function InsightsScreen() {
         <div className="row row--between">
           <div className="aicard__engine">
             <span className="pulse" />
-            {cap.tier === 'rules' ? 'On-device patterns' : 'On-device intelligence'}
+            On-device patterns
           </div>
           <span className="badge badge--accent">
-            <Cpu size={9} /> {cap.ramGb} GB
+            <Cpu size={9} /> no upload
           </span>
         </div>
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: 19, marginTop: 8, letterSpacing: '-0.02em' }}>
@@ -130,8 +131,9 @@ export function InsightsScreen() {
           {reflection ? 'Write another' : 'Compose a reflection'}
         </button>
         <p className="mono-note" style={{ marginTop: 8 }}>
-          Nothing is uploaded. Without a supported model the same reflection is written from local
-          statistics — no feature is locked behind hardware.
+          Nothing is uploaded and no model is downloaded. In the Android build this same card binds
+          to the platform model when one is present; the words are always composed from your own
+          records.
         </p>
       </div>
 
@@ -161,6 +163,21 @@ export function InsightsScreen() {
         </div>
       </section>
 
+      {!hasHistory && (
+        <div className="firstvow" style={{ marginTop: 16 }}>
+          <div className="firstvow__glyph">✦</div>
+          <h2>Insights need a few kept days</h2>
+          <p>
+            Nothing here is invented. Charts, streaks and reflections appear once you have taken a
+            vow and marked a day.
+          </p>
+          <button className="btn btn--primary" onClick={() => nav.openCreate()} type="button">
+            Take a vow
+          </button>
+        </div>
+      )}
+
+      {hasHistory && (
       <section className="section">
         <div className="section__head">
           <div className="section__title">Thirteen weeks</div>
@@ -195,7 +212,9 @@ export function InsightsScreen() {
           </div>
         </div>
       </section>
+      )}
 
+      {hasHistory && (
       <section className="section">
         <div className="section__head">
           <div className="section__title">Last 30 days by practice</div>
@@ -227,6 +246,7 @@ export function InsightsScreen() {
           ))}
         </div>
       </section>
+      )}
 
       <section className="section">
         <div className="section__head">
@@ -264,17 +284,16 @@ export function InsightsScreen() {
             <Cpu size={17} />
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 540 }}>On-device model settings</div>
+            <div style={{ fontSize: 13.5, fontWeight: 540 }}>Reflection settings</div>
             <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
-              {cap.eligible ? 'Eligible device · ' : 'Not eligible · '}
-              {cap.reason}
+              {cap.engine} · {cap.reason}
             </div>
           </div>
           <TrendingUp size={15} color="var(--muted-2)" />
         </button>
         <p className="mono-note">
-          AI here is deliberately small: summaries, gentle nudges and search over your own notes. No
-          advice that pretends to be a guru, no generating practice for you.
+          This is deliberately small: summaries, gentle nudges and search over your own notes. No
+          advice that pretends to be a guru, and it never invents a practice for you.
         </p>
       </section>
 

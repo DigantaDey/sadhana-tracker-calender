@@ -113,6 +113,17 @@ export const TITHI_NAMES = [
   'Daśamī', 'Ekādaśī', 'Dvādaśī', 'Trayodaśī', 'Caturdaśī', 'Amāvasyā',
 ];
 
+/** The place the pañcāṅga is cast for. Sunrise — and therefore the tithi —
+ *  is local, so this is not optional. */
+export type PanchangSettings = {
+  /** `auto` = derived from the device's zone, or a city id from `CITIES`. */
+  presetId: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+  timeZone: string;
+};
+
 export type Settings = {
   name: string;
   theme: 'system' | 'light' | 'dark';
@@ -126,10 +137,13 @@ export type Settings = {
   };
   onDeviceAi: 'auto' | 'on' | 'off';
   diaryPrompt: boolean;
+  panchang: PanchangSettings;
+  /** First-run flow completed. Until true the app shows onboarding. */
+  onboarded: boolean;
 };
 
 export type AppState = {
-  version: 1;
+  version: 2;
   sankalps: Sankalp[];
   completions: Record<string, Completion>;
   notes: Note[];

@@ -6,10 +6,11 @@ import {
   ChevronRight,
   Download,
   Info,
+  MapPin,
   Monitor,
   Moon,
   Palette,
-  RefreshCw,
+  ShieldCheck,
   Sun,
   Trash2,
   Upload,
@@ -18,14 +19,19 @@ import {
 import { useStore } from '../lib/store';
 import { prettyTime } from '../lib/date';
 import { detectCapability } from '../lib/ai';
+import { normaliseState } from '../lib/initialState';
+import { panchangFor } from '../lib/panchang';
 import { requestNotificationPermission } from '../hooks/useReminders';
-import { Chip, PC_ACCENT, Segmented, Switch, ToggleRow } from '../components/ui';
+import { Chip, PC_ACCENT, Segmented, ToggleRow } from '../components/ui';
+import { LocationPicker } from '../components/LocationPicker';
+
+const APP_VERSION = __APP_VERSION__;
 
 const LEAD_OPTIONS = [0, 10, 15, 30, 60, 120];
 const SNOOZE_OPTIONS = [5, 10, 15, 30, 60];
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
-  const { state, updateSettings, resetDemo, clearAll, pushToast } = useStore();
+  const { state, updateSettings, eraseAll, replaceState, pushToast } = useStore();
   const s = state.settings;
   const cap = detectCapability(s.onDeviceAi);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(
@@ -48,17 +54,22 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(String(reader.result));
-        if (!data || !Array.isArray(data.sankalps)) throw new Error('bad file');
-        localStorage.setItem('sadhana.v1', JSON.stringify(data));
-        pushToast({ text: 'Backup restored', sub: 'reloading', icon: 'check' });
-        window.setTimeout(() => window.location.reload(), 600);
+        const parsed = normaliseState(JSON.parse(String(reader.result)));
+        if (!parsed) throw new Error('bad file');
+        replaceState(parsed);
+        pushToast({
+          text: 'Backup restored',
+          sub: `${parsed.sankalps.length} vows · ${parsed.notes.length} entries`,
+          icon: 'check',
+        });
       } catch {
         pushToast({ text: 'That file was not a Sādhana backup', icon: 'info' });
       }
     };
     reader.readAsText(file);
   };
+
+  const tithi = panchangFor(new Date().toISOString().slice(0, 10));
 
   return (
     <main className="screen">
@@ -167,6 +178,33 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             on={s.diaryPrompt}
             onChange={(v) => updateSettings({ diaryPrompt: v })}
           />
+        </div>
+      </div>
+
+      {/* Pañcāṅga */}
+      <div className="section">
+        <div className="section__head">
+          <div className="section__title">Pañcāṅga</div>
+          <span className="badge">
+            <MapPin size={9} /> {s.panchang.label}
+          </span>
+        </div>
+        <div className="listgroup" style={{ paddingTop: 12 }}>
+          <LocationPicker value={s.panchang} onChange={(next) => updateSettings({ panchang: next })} compact />
+          <div className="panch-mini" style={{ marginTop: 4 }}>
+            <div className="panch-mini__row">
+              <span>Today’s tithi</span>
+              <strong>{tithi.tithiName}</strong>
+            </div>
+            <div className="panch-mini__row">
+              <span>Until</span>
+              <strong>{tithi.tithiEndLabel}</strong>
+            </div>
+          </div>
+          <p className="mono-note">
+            Tithi is the Moon gaining 12° on the Sun; the day takes the tithi prevailing at local
+            sunrise. Everything is computed on this device for the place above.
+          </p>
         </div>
       </div>
 
@@ -358,27 +396,8 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           <button
             className="navrow"
             onClick={() => {
-              if (confirm('Reload the demo data? Your current entries will be replaced.')) {
-                resetDemo();
-                pushToast({ text: 'Demo data restored', icon: 'check' });
-              }
-            }}
-            type="button"
-          >
-            <span className="navrow__icon">
-              <RefreshCw />
-            </span>
-            <div style={{ flex: 1 }}>
-              <div className="navrow__title">Reset to demo data</div>
-              <div className="navrow__sub">A lived-in example to explore</div>
-            </div>
-            <ChevronRight className="chev" />
-          </button>
-          <button
-            className="navrow"
-            onClick={() => {
-              if (confirm('Erase every vow, mark and entry on this device?')) {
-                clearAll();
+              if (window.confirm('Erase every vow, mark and diary entry on this device? This cannot be undone.')) {
+                eraseAll();
                 pushToast({ text: 'Everything erased', icon: 'info' });
               }
             }}
@@ -389,9 +408,9 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             </span>
             <div style={{ flex: 1 }}>
               <div className="navrow__title" style={{ color: 'var(--rose)' }}>
-                Start empty
+                Erase all data
               </div>
-              <div className="navrow__sub">Erase all local data</div>
+              <div className="navrow__sub">Vows, marks and entries on this device</div>
             </div>
           </button>
         </div>
@@ -411,17 +430,22 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         <div className="card card--pad" style={{ background: 'var(--surface-2)' }}>
           <div className="row" style={{ gap: 9 }}>
             <Palette size={14} color="var(--accent)" />
-            <div style={{ fontSize: 12.5, fontWeight: 560 }}>Sādhana · prototype build</div>
+            <div style={{ fontSize: 12.5, fontWeight: 560 }}>Sādhana {APP_VERSION}</div>
           </div>
           <p className="mono-note" style={{ marginTop: 6 }}>
-            A local-first practice tracker. No account, no cloud, no analytics. Everything on this
-            screen is stored in the browser for the prototype and in SQLite (Room) in the Android
-            build.
+            A local-first practice tracker. No account, no cloud, no analytics, no third-party SDKs.
           </p>
-          <div className="row" style={{ gap: 8, marginTop: 10 }}>
-            <Info size={12} color="var(--muted-2)" />
-            <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
-              Pañcāṅga tithi here is approximate.
+          <div className="row" style={{ gap: 7, marginTop: 10, alignItems: 'flex-start' }}>
+            <ShieldCheck size={12} color="var(--jade)" style={{ flex: 'none', marginTop: 2 }} />
+            <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+              Your data never leaves this device unless you export it yourself.
+            </span>
+          </div>
+          <div className="row" style={{ gap: 7, marginTop: 6, alignItems: 'flex-start' }}>
+            <Info size={12} color="var(--muted-2)" style={{ flex: 'none', marginTop: 2 }} />
+            <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+              Pañcāṅga uses the full Meeus lunar series and your local sunrise — see the Pañcāṅga
+              sheet for the method.
             </span>
           </div>
         </div>

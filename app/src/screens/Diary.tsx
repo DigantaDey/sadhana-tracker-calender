@@ -222,7 +222,18 @@ export function DiaryScreen({
                 <Empty glyph="✎">
                   {query || tag
                     ? 'Nothing matches that yet.'
-                    : 'No entries. Today is a good day to start — three honest sentences will do.'}
+                    : 'No entries yet. Three honest sentences about today will do.'}
+                  {!query && !tag && (
+                    <div style={{ marginTop: 14 }}>
+                      <button
+                        className="btn btn--ghost"
+                        onClick={() => openByDate(todayISO())}
+                        type="button"
+                      >
+                        <NotebookPen size={14} /> Write today’s entry
+                      </button>
+                    </div>
+                  )}
                 </Empty>
               )}
               {filtered.map((n) => (

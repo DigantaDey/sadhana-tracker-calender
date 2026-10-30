@@ -9,33 +9,38 @@ import {
   type ReactNode,
 } from 'react';
 import { todayISO } from './date';
-import { createInitialState, seedEmptyState } from './seed';
+import { createInitialState, normaliseState, resolvePanchangPlace } from './initialState';
+import { setPanchangLocation } from './panchang';
 import { completionId } from './schedule';
 import type { AppState, Note, Sankalp, SankalpStatus, Settings } from './types';
 
-const KEY = 'sadhana.v1';
+const KEY = 'sadhana.v2';
+const LEGACY_KEY = 'sadhana.v1';
 
 function load(): AppState {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return createInitialState();
-    const parsed = JSON.parse(raw) as AppState;
-    if (!parsed || parsed.version !== 1) return createInitialState();
-    return {
-      ...createInitialState(),
-      ...parsed,
-      settings: { ...createInitialState().settings, ...parsed.settings },
-    };
+    const current = localStorage.getItem(KEY);
+    if (current) return normaliseState(JSON.parse(current)) ?? createInitialState();
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const migrated = normaliseState(JSON.parse(legacy));
+      if (migrated) {
+        // Keep the new payload only: the legacy key stops being written.
+        localStorage.setItem(KEY, JSON.stringify(migrated));
+        return migrated;
+      }
+    }
   } catch {
-    return createInitialState();
+    /* corrupt or unavailable storage — start clean rather than crash */
   }
+  return createInitialState();
 }
 
 function save(state: AppState) {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {
-    /* storage full / private mode — the app keeps working in memory */
+    /* quota / private mode: the session keeps working in memory */
   }
 }
 
@@ -48,7 +53,7 @@ type Store = {
   dismissToast: (id: number) => void;
   toggleComplete: (sankalpId: string, date: string, note?: string) => void;
   setCount: (sankalpId: string, date: string, count: number) => void;
-  addSankalp: (s: Omit<Sankalp, 'id' | 'createdAt'>) => void;
+  addSankalp: (s: Omit<Sankalp, 'id' | 'createdAt'>) => string;
   updateSankalp: (id: string, patch: Partial<Sankalp>) => void;
   setStatus: (id: string, status: SankalpStatus) => void;
   deleteSankalp: (id: string) => void;
@@ -57,57 +62,85 @@ type Store = {
   updateSettings: (patch: Partial<Settings>) => void;
   snooze: (key: string, minutes: number) => void;
   acknowledge: (key: string) => void;
-  resetDemo: () => void;
-  clearAll: () => void;
+  /** Replace everything (used by backup restore). */
+  replaceState: (next: AppState) => void;
+  eraseAll: () => void;
 };
 
 const Ctx = createContext<Store | null>(null);
+
+function newId(prefix: string): string {
+  const rand =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${Date.now().toString(36)}${rand}`;
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(load);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seq = useRef(1);
+  const latest = useRef(state);
+  latest.current = state;
 
+  // Persist on a short debounce: marking six practices in a row costs one write.
   useEffect(() => {
-    const id = window.setTimeout(() => save(state), 120);
+    const id = window.setTimeout(() => save(state), 220);
     return () => window.clearTimeout(id);
   }, [state]);
 
+  useEffect(() => {
+    const flush = () => save(latest.current);
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, []);
+
+  // The pañcāṅga engine reads the place from a module-level singleton so the
+  // schedule engine stays a pure function of (vow, date).
+  useEffect(() => {
+    setPanchangLocation(resolvePanchangPlace(state.settings));
+  }, [state.settings]);
+
   const pushToast = useCallback((t: Omit<Toast, 'id'>) => {
     const id = seq.current++;
-    setToasts((cur) => [...cur.slice(-2), { ...t, id }]);
-    window.setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 3400);
+    setToasts((cur) => [...cur.slice(-1), { ...t, id }]);
+    window.setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 3200);
   }, []);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((cur) => cur.filter((x) => x.id !== id));
   }, []);
 
-  const toggleComplete = useCallback(
-    (sankalpId: string, date: string, note?: string) => {
-      setState((s) => {
-        const id = completionId(sankalpId, date);
-        const prev = s.completions[id];
-        const done = !prev?.done;
-        return {
-          ...s,
-          completions: {
-            ...s.completions,
-            [id]: {
-              id,
-              sankalpId,
-              date,
-              done,
-              count: prev?.count,
-              note: note ?? prev?.note,
-              updatedAt: Date.now(),
-            },
+  const toggleComplete = useCallback((sankalpId: string, date: string, note?: string) => {
+    setState((s) => {
+      const id = completionId(sankalpId, date);
+      const prev = s.completions[id];
+      const done = !prev?.done;
+      return {
+        ...s,
+        completions: {
+          ...s.completions,
+          [id]: {
+            id,
+            sankalpId,
+            date,
+            done,
+            count: prev?.count,
+            note: note ?? prev?.note,
+            updatedAt: Date.now(),
           },
-        };
-      });
-    },
-    []
-  );
+        },
+      };
+    });
+  }, []);
 
   const setCount = useCallback((sankalpId: string, date: string, count: number) => {
     setState((s) => {
@@ -132,12 +165,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addSankalp = useCallback((input: Omit<Sankalp, 'id' | 'createdAt'>) => {
-    const s: Sankalp = {
-      ...input,
-      id: `sk-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-      createdAt: Date.now(),
-    };
-    setState((cur) => ({ ...cur, sankalps: [s, ...cur.sankalps] }));
+    const sankalp: Sankalp = { ...input, id: newId('sk'), createdAt: Date.now() };
+    setState((cur) => ({ ...cur, sankalps: [sankalp, ...cur.sankalps] }));
+    return sankalp.id;
   }, []);
 
   const updateSankalp = useCallback((id: string, patch: Partial<Sankalp>) => {
@@ -203,14 +233,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const acknowledge = useCallback((key: string) => {
-    setState((s) => ({
-      ...s,
-      acknowledged: { ...s.acknowledged, [key]: Date.now() },
-    }));
+    setState((s) => ({ ...s, acknowledged: { ...s.acknowledged, [key]: Date.now() } }));
   }, []);
 
-  const resetDemo = useCallback(() => setState(createInitialState()), []);
-  const clearAll = useCallback(() => setState(seedEmptyState()), []);
+  const replaceState = useCallback((next: AppState) => {
+    const clean = normaliseState(next);
+    if (clean) setState({ ...clean, settings: { ...clean.settings, onboarded: true } });
+  }, []);
+
+  const eraseAll = useCallback(() => {
+    setState((s) => ({
+      ...createInitialState(),
+      settings: { ...s.settings, onboarded: true, name: s.settings.name },
+    }));
+  }, []);
 
   const value = useMemo<Store>(
     () => ({
@@ -229,13 +265,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSettings,
       snooze,
       acknowledge,
-      resetDemo,
-      clearAll,
+      replaceState,
+      eraseAll,
     }),
     [
-      state, toasts, pushToast, dismissToast, toggleComplete, setCount, addSankalp,
-      updateSankalp, setStatus, deleteSankalp, saveNote, deleteNote, updateSettings,
-      snooze, acknowledge, resetDemo, clearAll,
+      state,
+      toasts,
+      pushToast,
+      dismissToast,
+      toggleComplete,
+      setCount,
+      addSankalp,
+      updateSankalp,
+      setStatus,
+      deleteSankalp,
+      saveNote,
+      deleteNote,
+      updateSettings,
+      snooze,
+      acknowledge,
+      replaceState,
+      eraseAll,
     ]
   );
 
@@ -248,14 +298,15 @@ export function useStore(): Store {
   return v;
 }
 
+/** Current civil date, refreshed at midnight and whenever the tab returns. */
 export function useToday() {
-  const [today, setToday] = useState(todayISO());
+  const [today, setToday] = useState(todayISO);
   useEffect(() => {
     const tick = () => {
       const t = todayISO();
       setToday((cur) => (cur === t ? cur : t));
     };
-    const id = window.setInterval(tick, 30_000);
+    const id = window.setInterval(tick, 60_000);
     document.addEventListener('visibilitychange', tick);
     return () => {
       window.clearInterval(id);

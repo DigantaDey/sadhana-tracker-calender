@@ -14,7 +14,7 @@ import { useStore, useToday } from '../lib/store';
 import { useNav } from '../lib/nav';
 import { COLORS, type Sankalp } from '../lib/types';
 import { addDays, formatShort, prettyWindow } from '../lib/date';
-import { describeFrequency } from '../lib/panchang';
+import { describeFrequency } from '../lib/format';
 import { isDone, occKey, sankalpProgress, scheduledOn } from '../lib/schedule';
 import { PC_ACCENT, Sheet } from '../components/ui';
 

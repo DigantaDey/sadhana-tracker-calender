@@ -6,7 +6,7 @@
 //   "lite"  → MediaPipe LLM Inference with a 1–2B q4 model on 8 GB+ devices
 //   "rules" → deterministic on-device heuristics, always works, zero download
 //
-// Everything below runs locally — this prototype composes the same three tiers
+// Everything below runs locally — this module composes the same three tiers
 // in the browser so the behaviour is honest about what each tier can say.
 
 import type { AppState } from './types';
@@ -17,8 +17,8 @@ import {
   weekdayLabels,
   weekdayOf,
 } from './date';
-import { consistency, scheduledOn, isDone, tallyDay } from './schedule';
-import { tithiName } from './panchang';
+import { consistency, occursOn, scheduledOn, isDone, tallyDay } from './schedule';
+import { panchangFor } from './panchang';
 
 export type AiTier = 'nano' | 'lite' | 'rules';
 
@@ -42,63 +42,37 @@ export function detectDevice(): { ramGb: number; cores: number; mobile: boolean 
   return { ramGb, cores, mobile };
 }
 
+/**
+ * What this build can actually do — stated plainly.
+ *
+ * The browser build composes every reflection from local statistics. It has no
+ * access to a platform model, so it does not pretend to: the card says "local
+ * reflection engine" and the numbers it quotes are yours. The Android build
+ * binds the same interface to AICore / MediaPipe when the device offers one and
+ * falls back to this engine otherwise, so nothing is ever a dead end.
+ */
 export function detectCapability(pref: 'auto' | 'on' | 'off'): Capability {
   const dev = detectDevice();
-  const ram = dev.ramGb;
 
   if (pref === 'off') {
     return {
       tier: 'rules',
-      engine: 'On-device insights (off)',
-      detail: 'AI features are turned off. Your data stays put either way.',
-      ramGb: ram,
+      engine: 'Reflections off',
+      detail: 'You can still read every chart and every streak. Nothing is uploaded either way.',
+      ramGb: dev.ramGb,
       eligible: false,
-      reason: 'disabled in settings',
+      reason: 'turned off in settings',
     };
   }
 
-  if (pref === 'on') {
-    return {
-      tier: ram >= 7 ? 'nano' : 'lite',
-      engine: ram >= 7 ? 'Gemini Nano · AICore' : 'MediaPipe LLM · Gemma 2B q4',
-      detail:
-        ram >= 7
-          ? 'Runs in the platform model service. No download, no network calls.'
-          : 'A compact local model, downloaded once over Wi-Fi when you are on charge.',
-      ramGb: ram,
-      eligible: true,
-      reason: 'forced on',
-    };
-  }
-
-  if (ram >= 7) {
-    return {
-      tier: 'nano',
-      engine: 'Gemini Nano · AICore',
-      detail: 'System model available. Summaries and reflection prompts run locally.',
-      ramGb: ram,
-      eligible: true,
-      reason: 'device reports 8 GB+ and a supported NPU',
-    };
-  }
-  if (ram >= 5) {
-    return {
-      tier: 'lite',
-      engine: 'MediaPipe LLM · Gemma 2B q4',
-      detail: 'Smaller local model. Slower, and only loaded when you ask for it.',
-      ramGb: ram,
-      eligible: true,
-      reason: 'mid-range device — lite model',
-    };
-  }
   return {
     tier: 'rules',
-    engine: 'Pattern insights (no model)',
+    engine: 'Local reflection engine',
     detail:
-      'This device is better served by local statistics. Charts, streaks and reminders all still work.',
-    ramGb: ram,
+      'Written from your own records — practices kept, weeks missed, what your diary returns to. No model is downloaded and no text leaves this device.',
+    ramGb: dev.ramGb,
     eligible: false,
-    reason: 'below the 6 GB memory floor for a local model',
+    reason: 'composed on-device from local statistics',
   };
 }
 
@@ -181,8 +155,7 @@ export function ruleInsights(state: AppState): Insight[] {
     let done = 0;
     for (let i = 0; i < 28; i++) {
       const iso = addDays(t, -i);
-      const list = scheduledOn([s], iso);
-      if (!list.length) continue;
+      if (!occursOn(s, iso)) continue;
       due++;
       if (isDone(state.completions, s.id, iso)) done++;
     }
@@ -213,13 +186,15 @@ export function ruleInsights(state: AppState): Insight[] {
     });
   }
 
-  // tithi note
-  const tithi = tithiName(new Date());
+  // pañcāṅga note — real values, from the same engine the calendar uses
+  const day = panchangFor(t);
   out.push({
     id: 'tithi-today',
     kind: 'observation',
-    title: `Today is ${tithi}`,
-    body: 'The lunar day in the pañcāṅga is approximate in this build — calculated from the moon’s elongation at local noon.',
+    title: `Today is ${day.tithiName}`,
+    body: `The tithi runs until ${day.tithiEndLabel}, with ${day.nakshatraName} nakṣatra${
+      day.observance ? ` and ${day.observance}` : ''
+    }. Sunrise ${day.sunriseLabel ?? '—'}, sunset ${day.sunsetLabel ?? '—'}.`,
   });
 
   return out;
@@ -227,12 +202,19 @@ export function ruleInsights(state: AppState): Insight[] {
 
 /**
  * A composed reflection. On "nano"/"lite" a local model would write this from
- * the same facts; the prototype assembles it from the analytics so the output
+ * the same facts; this module assembles it from the analytics so the output
  * is stable, readable and never leaves the device.
  */
 export function composeReflection(state: AppState, tier: AiTier): string {
   const t = todayISO();
   const active = state.sankalps.filter((s) => s.status === 'active');
+
+  if (!state.sankalps.length) {
+    return [
+      'There is nothing to reflect on yet — and that is a fine place to start.',
+      'A reflection needs a few kept days behind it. Take one small vow, keep it for a week, and come back.',
+    ].join('\n\n');
+  }
   const notes = [...state.notes].sort((a, b) => (a.date < b.date ? 1 : -1));
   const last7 = consistency(state.sankalps, state.completions, addDays(t, -6), t);
   const week = Array.from({ length: 7 }, (_, i) => tallyDay(state.sankalps, state.completions, addDays(t, -6 + i)));
@@ -245,7 +227,7 @@ export function composeReflection(state: AppState, tier: AiTier): string {
       let done = 0;
       for (let i = 0; i < 14; i++) {
         const iso = addDays(t, -i);
-        if (!scheduledOn([s], iso).length) continue;
+        if (!occursOn(s, iso)) continue;
         due++;
         if (isDone(state.completions, s.id, iso)) done++;
       }

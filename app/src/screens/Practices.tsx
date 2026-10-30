@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, Clock, Flame, Pause, Play, Plus, Sparkles, Target } from 'lucide-react';
 import { useStore, useToday } from '../lib/store';
 import { useNav } from '../lib/nav';
-import { COLORS, type Sankalp } from '../lib/types';
-import { describeFrequency } from '../lib/panchang';
+import type { Sankalp } from '../lib/types';
+import { describeFrequency } from '../lib/format';
 import { formatShort, prettyWindow } from '../lib/date';
 import { sankalpProgress } from '../lib/schedule';
 import { Empty, PC_ACCENT, Segmented, pc } from '../components/ui';
@@ -71,9 +71,18 @@ export function PracticesScreen() {
       <div className="stack gap-2" style={{ marginTop: 16 }}>
         {list.length === 0 && (
           <Empty glyph="✦">
-            {filter === 'active'
-              ? 'No vow in force yet. Start with ten minutes — small enough to keep tomorrow.'
-              : 'Nothing here.'}
+            {state.sankalps.length === 0
+              ? 'No saṅkalpa yet. Start with ten minutes — small enough to keep on your worst day.'
+              : filter === 'active'
+              ? 'No vow in force right now. You can resume a paused one, or take a new vow.'
+              : 'Nothing in this list yet.'}
+            {filter === 'active' && (
+              <div style={{ marginTop: 14 }}>
+                <button className="btn btn--ghost" onClick={() => nav.openCreate()} type="button">
+                  <Plus size={14} /> Take a vow
+                </button>
+              </div>
+            )}
           </Empty>
         )}
 

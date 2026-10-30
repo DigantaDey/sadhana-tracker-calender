@@ -2,6 +2,7 @@ package app.sadhana.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,13 +16,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadhana.ai.AiCapability
 import app.sadhana.domain.AiPref
+import app.sadhana.domain.PLACES
+import app.sadhana.domain.Panchang
 import app.sadhana.domain.Settings
 import app.sadhana.domain.ThemePref
 import app.sadhana.ui.components.Chip
@@ -125,6 +134,73 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionHeader("Pañcāṅga", Modifier.padding(top = 18.dp)) }
+        item {
+            var picking by remember { mutableStateOf(false) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(extras.cardAlt)
+                    .border(1.dp, extras.hairline, RoundedCornerShape(14.dp))
+                    .clickable { picking = true }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Place", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        settings.panchang.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        "Tithi runs sunrise to sunrise, so sunrise decides the day.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(Icons.Rounded.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (picking) {
+                AlertDialog(
+                    onDismissRequest = { picking = false },
+                    title = { Text("Cast the pañcāṅga from") },
+                    text = {
+                        LazyColumn(Modifier.height(320.dp)) {
+                            items(PLACES.size) { index ->
+                                val place = PLACES[index]
+                                Text(
+                                    place.label,
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onUpdate { it.copy(panchang = place) }
+                                            picking = false
+                                        }
+                                        .padding(vertical = 12.dp),
+                                    color = if (place.id == settings.panchang.id)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { picking = false }) { Text("Close") }
+                    },
+                )
+            }
+        }
+        item {
+            Text(
+                Panchang.METHOD,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
         item { SectionHeader("On-device intelligence", Modifier.padding(top = 18.dp)) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -172,18 +248,20 @@ fun SettingsScreen(
         item { SectionHeader("Your data", Modifier.padding(top = 18.dp)) }
         item {
             Column {
-                Text("Export everything", style = MaterialTheme.typography.titleSmall)
+                Text("Local-first", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Vows, marks and diary as one JSON file — see DataExport in the repository layer.",
+                    "No account, no cloud, no analytics, and the app holds no internet permission. " +
+                        "Room (SQLite) on this device is the only copy.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
                 Hairline()
                 Spacer(Modifier.height(10.dp))
-                Text("Local-first", style = MaterialTheme.typography.titleSmall)
+                Text("Backups", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "No account, no cloud, no analytics. Room (SQLite) on this device is the only copy.",
+                    "Android's own backup covers the practice database, so a new phone restores " +
+                        "your vows, marks and diary. Turn it off in system settings if you prefer.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -192,7 +270,7 @@ fun SettingsScreen(
 
         item {
             Text(
-                "Sādhana 0.1.0 · pañcāṅga tithi is approximate in this build",
+                "Sādhana ${app.sadhana.BuildConfig.VERSION_NAME} · pañcāṅga computed on device",
                 fontSize = 10.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 20.dp),

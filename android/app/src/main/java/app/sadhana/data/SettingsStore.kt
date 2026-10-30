@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.sadhana.domain.AiPref
+import app.sadhana.domain.Place
 import app.sadhana.domain.Settings
+import app.sadhana.domain.placeById
 import app.sadhana.domain.ThemePref
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,40 +29,49 @@ class SettingsStore(private val context: Context) {
         val quietStart = stringPreferencesKey("quiet_start")
         val quietEnd = stringPreferencesKey("quiet_end")
         val ai = stringPreferencesKey("on_device_ai")
+        val panchangId = stringPreferencesKey("panchang_place")
+        val panchangLabel = stringPreferencesKey("panchang_label")
+        val panchangLat = stringPreferencesKey("panchang_lat")
+        val panchangLon = stringPreferencesKey("panchang_lon")
+        val panchangZone = stringPreferencesKey("panchang_zone")
+        val onboarded = booleanPreferencesKey("onboarded")
     }
 
-    val settings: Flow<Settings> = context.dataStore.data.map { p ->
+    /** Rebuild [Settings] from whatever is on disk, tolerating anything. */
+    private fun read(prefs: Preferences): Settings {
         val defaults = Settings()
-        Settings(
-            name = p[Keys.name] ?: defaults.name,
-            theme = runCatching { ThemePref.valueOf(p[Keys.theme] ?: "") }
+        val id = prefs[Keys.panchangId]
+        val preset = placeById(id)
+        val stored = Place(
+            id = id ?: preset.id,
+            label = prefs[Keys.panchangLabel] ?: preset.label,
+            latitude = prefs[Keys.panchangLat]?.toDoubleOrNull() ?: preset.latitude,
+            longitude = prefs[Keys.panchangLon]?.toDoubleOrNull() ?: preset.longitude,
+            zone = runCatching { java.time.ZoneId.of(prefs[Keys.panchangZone] ?: "") }
+                .getOrDefault(preset.zone),
+        )
+        return Settings(
+            name = prefs[Keys.name] ?: defaults.name,
+            theme = runCatching { ThemePref.valueOf(prefs[Keys.theme] ?: "") }
                 .getOrDefault(defaults.theme),
-            weekStartsMonday = p[Keys.monday] ?: defaults.weekStartsMonday,
-            notificationsEnabled = p[Keys.notifications] ?: defaults.notificationsEnabled,
-            defaultLeadMinutes = p[Keys.lead]?.toIntOrNull() ?: defaults.defaultLeadMinutes,
-            snoozeMinutes = p[Keys.snooze]?.toIntOrNull() ?: defaults.snoozeMinutes,
-            quietStart = p[Keys.quietStart] ?: defaults.quietStart,
-            quietEnd = p[Keys.quietEnd] ?: defaults.quietEnd,
-            onDeviceAi = runCatching { AiPref.valueOf(p[Keys.ai] ?: "") }.getOrDefault(defaults.onDeviceAi),
+            weekStartsMonday = prefs[Keys.monday] ?: defaults.weekStartsMonday,
+            notificationsEnabled = prefs[Keys.notifications] ?: defaults.notificationsEnabled,
+            defaultLeadMinutes = prefs[Keys.lead]?.toIntOrNull() ?: defaults.defaultLeadMinutes,
+            snoozeMinutes = prefs[Keys.snooze]?.toIntOrNull() ?: defaults.snoozeMinutes,
+            quietStart = prefs[Keys.quietStart] ?: defaults.quietStart,
+            quietEnd = prefs[Keys.quietEnd] ?: defaults.quietEnd,
+            onDeviceAi = runCatching { AiPref.valueOf(prefs[Keys.ai] ?: "") }
+                .getOrDefault(defaults.onDeviceAi),
+            panchang = stored,
+            onboarded = prefs[Keys.onboarded] ?: defaults.onboarded,
         )
     }
 
+    val settings: Flow<Settings> = context.dataStore.data.map { read(it) }
+
     suspend fun update(transform: (Settings) -> Settings) {
         context.dataStore.edit { prefs ->
-            val current = Settings(
-                name = prefs[Keys.name] ?: "",
-                theme = runCatching { ThemePref.valueOf(prefs[Keys.theme] ?: "") }
-                    .getOrDefault(ThemePref.SYSTEM),
-                weekStartsMonday = prefs[Keys.monday] ?: true,
-                notificationsEnabled = prefs[Keys.notifications] ?: true,
-                defaultLeadMinutes = prefs[Keys.lead]?.toIntOrNull() ?: 15,
-                snoozeMinutes = prefs[Keys.snooze]?.toIntOrNull() ?: 30,
-                quietStart = prefs[Keys.quietStart] ?: "22:30",
-                quietEnd = prefs[Keys.quietEnd] ?: "05:00",
-                onDeviceAi = runCatching { AiPref.valueOf(prefs[Keys.ai] ?: "") }
-                    .getOrDefault(AiPref.AUTO),
-            )
-            val next = transform(current)
+            val next = transform(read(prefs))
             prefs[Keys.name] = next.name
             prefs[Keys.theme] = next.theme.name
             prefs[Keys.monday] = next.weekStartsMonday
@@ -70,6 +81,12 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.quietStart] = next.quietStart
             prefs[Keys.quietEnd] = next.quietEnd
             prefs[Keys.ai] = next.onDeviceAi.name
+            prefs[Keys.panchangId] = next.panchang.id
+            prefs[Keys.panchangLabel] = next.panchang.label
+            prefs[Keys.panchangLat] = next.panchang.latitude.toString()
+            prefs[Keys.panchangLon] = next.panchang.longitude.toString()
+            prefs[Keys.panchangZone] = next.panchang.zone.id
+            prefs[Keys.onboarded] = next.onboarded
         }
     }
 }

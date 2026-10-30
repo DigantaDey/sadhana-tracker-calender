@@ -30,6 +30,7 @@ import app.sadhana.domain.Sankalp
 import app.sadhana.ui.screens.CalendarScreen
 import app.sadhana.ui.screens.DiaryScreen
 import app.sadhana.ui.screens.InsightsScreen
+import app.sadhana.ui.screens.OnboardingScreen
 import app.sadhana.ui.screens.SankalpScreen
 import app.sadhana.ui.screens.SettingsScreen
 import app.sadhana.ui.screens.TodayScreen
@@ -59,7 +60,13 @@ fun SadhanaRoot(vm: SadhanaViewModel) {
     var selectedDay by remember { mutableStateOf<String?>(null) }
 
     SadhanaTheme(state.settings.theme) {
-        if (showSettings) {
+        if (!state.settings.onboarded) {
+            OnboardingScreen(
+                settings = state.settings,
+                onUpdate = vm::updateSettings,
+                onDone = {},
+            )
+        } else if (showSettings) {
             SettingsScreen(
                 settings = state.settings,
                 capability = state.capability,

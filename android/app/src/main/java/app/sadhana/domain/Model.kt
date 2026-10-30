@@ -114,6 +114,10 @@ data class Settings(
     val quietStart: String = "22:30",
     val quietEnd: String = "05:00",
     val onDeviceAi: AiPref = AiPref.AUTO,
+    /** Where the pañcāṅga is cast: a tithi runs sunrise to sunrise. */
+    val panchang: Place = Place.DELHI,
+    /** False until the welcome screen is dismissed. */
+    val onboarded: Boolean = false,
 )
 
 enum class ThemePref { SYSTEM, LIGHT, DARK }

@@ -5,8 +5,8 @@ import android.content.Context
 import app.sadhana.ai.OnDeviceAi
 import app.sadhana.data.SadhanaDatabase
 import app.sadhana.data.SadhanaRepository
-import app.sadhana.data.SeedData
 import app.sadhana.data.SettingsStore
+import app.sadhana.domain.Panchang
 import app.sadhana.notifications.Notifications
 import app.sadhana.notifications.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +34,13 @@ class SadhanaApp : Application() {
         container = AppContainer(this)
         Notifications.ensureChannels(this)
 
+        // Keep the pañcāṅga place in step with settings — every tithi rule,
+        // calendar cell and reminder reads from `Panchang.place`.
         container.scope.launch {
-            SeedData.seedIfEmpty(this@SadhanaApp, container)
+            container.settingsStore.settings.collect { Panchang.place = it.panchang }
+        }
+
+        container.scope.launch {
             container.scheduler.rescheduleAll(container.repo.currentSankalps())
         }
     }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sādhana</string>
+    <string name="channel_reminders">Practice reminders</string>
+    <string name="channel_reminders_desc">A quiet nudge before each practice window opens</string>
+    <string name="channel_digest">Daily digest</string>
+    <string name="channel_digest_desc">An evening summary of what was kept</string>
+    <string name="action_mark_done">Mark kept</string>
+    <string name="action_snooze">Snooze</string>
+</resources>
